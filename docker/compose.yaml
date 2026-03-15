@@ -1,0 +1,115 @@
+# =============================================================================
+# Local Agent OS - Docker Compose Configuration
+# =============================================================================
+# Usage: cp .env.example .env && docker compose up -d
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Flowise - Orchestration Layer
+  # ---------------------------------------------------------------------------
+  flowise:
+    image: flowise:latest
+    build:
+      context: ../.
+      dockerfile: Dockerfile
+    ports:
+      - "${FLOWISE_PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - FLOWISE_SECRETKEY=${FLOWISE_SECRETKEY:-change-me-in-production}
+      - DATABASE_TYPE=sqlite
+      - DATABASE_PATH=/root/.flowise
+    volumes:
+      - ../volumes/flowise:/root/.flowise
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Claude Worker - Coding Agent
+  # ---------------------------------------------------------------------------
+  claude-worker-coding:
+    build:
+      context: ../packages/claude-worker
+      dockerfile: ../docker/services/claude-worker/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - WORKER_ROLE=coding
+      - SESSION_NAMESPACE=coding
+      - DATA_ROOT=/data
+      - MAX_CONCURRENCY=2
+    volumes:
+      - ../volumes/coding-agent:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Claude Worker - Support Agent
+  # ---------------------------------------------------------------------------
+  claude-worker-support:
+    build:
+      context: ../packages/claude-worker
+      dockerfile: ../docker/services/claude-worker/Dockerfile
+    ports:
+      - "3003:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - WORKER_ROLE=support
+      - SESSION_NAMESPACE=support
+      - DATA_ROOT=/data
+      - MAX_CONCURRENCY=5
+    volumes:
+      - ../volumes/support-agent:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Slack Bridge - IM Integration
+  # ---------------------------------------------------------------------------
+  slack-bridge:
+    build:
+      context: ../packages/slack-bridge
+      dockerfile: ../docker/services/slack-bridge/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - SLACK_BRIDGE_PORT=3002
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+      - FLOWISE_URL=http://flowise:3000
+      - CLAUDE_WORKER_URL=http://claude-worker-coding:3001
+    restart: unless-stopped
+    depends_on:
+      - flowise
+      - claude-worker-coding
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  default:
+    name: local-agent-os
+    driver: bridge
