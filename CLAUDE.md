@@ -182,12 +182,14 @@ Flowise/                      # Flowise main project
 # Build Flowise local image (from project root)
 docker build -t flowise:local .
 
-# Build Claude Worker image
+# Build Claude Worker image (includes Claude Code CLI installation)
 docker build -t claude-worker:test -f claude-worker/docker/Dockerfile claude-worker
 
 # Build Slack Bridge image
 docker build -t slack-bridge:test -f slack-bridge/docker/Dockerfile slack-bridge
 ```
+
+**Note**: The Claude Worker Dockerfile automatically installs `@anthropic-ai/claude-code` CLI during build. No manual installation needed.
 
 ### Environment Setup
 
