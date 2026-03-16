@@ -1,4 +1,4 @@
-import { WebClient, SlackEvent, SlackCommand } from '@slack/web-api'
+import { WebClient, Block, KnownBlock, View } from '@slack/web-api'
 import { logger } from '../logger'
 
 export interface SlackConfig {
@@ -49,7 +49,7 @@ export class SlackClient {
   }
 
   // Post a message with blocks (for rich formatting)
-  async postMessageWithBlocks(channel: string, blocks: object[], threadTs?: string): Promise<string> {
+  async postMessageWithBlocks(channel: string, blocks: (Block | KnownBlock)[], threadTs?: string): Promise<string> {
     try {
       const result = await this.client.chat.postMessage({
         channel,
@@ -90,7 +90,7 @@ export class SlackClient {
   }
 
   // Open a modal (for approvals)
-  async openModal(triggerId: string, view: object): Promise<void> {
+  async openModal(triggerId: string, view: View): Promise<void> {
     try {
       await this.client.views.open({
         trigger_id: triggerId,

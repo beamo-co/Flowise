@@ -117,79 +117,139 @@ Key environment variables in `packages/server/.env`:
 - Full docs: https://docs.flowiseai.com/
 - API docs available at `/api-documentation` when running
 
-## Local Agent OS 项目文档
+## Local Agent OS Documentation
 
-项目文档位于 `docs/` 目录：
+Documentation is located in the `docs/` directory:
 
-| 文件 | 说明 |
-|------|------|
-| `docs/plan_cn.md` | 完整的实施计划（中文），包含 12 个 Phase 的详细任务 |
-| `docs/todo_cn.md` | 项目进度跟踪，包含待办事项列表 |
-| `docs/prd_v1.md` | 产品需求文档 |
-| `docs/implementation-plan-ai-coding.md` | 英文实施计划参考 |
+| File | Description |
+|------|-------------|
+| `docs/plan_cn.md` | Complete implementation plan (Chinese), contains detailed tasks for 12 Phases |
+| `docs/todo_cn.md` | Project progress tracking with todo list |
+| `docs/prd_v1.md` | Product Requirements Document |
+| `docs/implementation-plan-ai-coding.md` | English implementation plan reference |
 
-### 项目目录结构
+### Project Directory Structure
 
 ```
-Flowise/
-  packages/
-    claude-worker/     # Worker 服务源码
-    slack-bridge/     # Slack Bridge 源码
-  docker/
-    services/         # Dockerfile
-    compose.yaml      # Docker Compose 配置
-  volumes/           # 持久化数据
-  docs/              # 项目文档
+Flowise/                      # Flowise main project
+├── packages/                 # Flowise source code
+│   ├── server/              # Backend API
+│   ├── components/          # Component nodes
+│   ├── ui/                 # Frontend UI
+│   └── agentflow/          # AgentFlow component
+├── claude-worker/           # Claude Worker service (standalone project)
+│   ├── docker/
+│   │   └── Dockerfile
+│   ├── src/
+│   │   ├── index.ts        # Entry point
+│   │   ├── config.ts       # Configuration
+│   │   ├── jobs/          # Job management
+│   │   ├── db/            # SQLite database
+│   │   ├── sdk/           # Claude SDK integration
+│   │   ├── workspace/     # Worktree management
+│   │   ├── approvals/     # Approval system
+│   │   └── events/       # SSE event streaming
+│   └── package.json
+├── slack-bridge/            # Slack Bridge service (standalone project)
+│   ├── docker/
+│   │   └── Dockerfile
+│   ├── src/
+│   │   ├── index.ts        # Entry point
+│   │   ├── slack/          # Slack API
+│   │   └── flowise/       # Flowise client
+│   └── package.json
+├── docker/
+│   ├── compose.yaml        # Docker Compose configuration
+│   └── volumes/           # Persistent data volumes
+│       ├── flowise/       # Flowise data
+│       ├── coding-agent/  # Coding Worker data
+│       └── support-agent/ # Support Worker data
+├── skills/                 # Role-specific skill documents
+│   ├── coding/            # Coding Worker skills
+│   └── support/           # Support Worker skills
+└── docs/                  # Project documentation
 ```
 
-### 使用文档
+### Usage
 
-1. **实施计划** - 查阅 `docs/plan_cn.md` 了解当前 Phase 的任务
-2. **进度跟踪** - 更新 `docs/todo_cn.md` 标记完成的任务
-3. **查看进度** - 查看 `docs/todo_cn.md` 的完成状态表格
+1. **Implementation Plan** - Check `docs/plan_cn.md` for current Phase tasks
+2. **Progress Tracking** - Update `docs/todo_cn.md` to mark completed tasks
+3. **View Progress** - Check the completion status table in `docs/todo_cn.md`
 
-### 快速命令
+### Docker Build Commands
 
 ```bash
-# 查看当前 Phase 进度
-cat docs/todo_cn.md | grep -A 20 "## 待办事项"
+# Build Flowise local image (from project root)
+docker build -t flowise:local .
 
-# 构建 Worker 镜像
-docker build -t claude-worker -f docker/services/claude-worker/Dockerfile packages/claude-worker
+# Build Claude Worker image
+docker build -t claude-worker:test -f claude-worker/docker/Dockerfile claude-worker
+
+# Build Slack Bridge image
+docker build -t slack-bridge:test -f slack-bridge/docker/Dockerfile slack-bridge
+
+# Start all services (from docker directory)
+cd docker
+docker compose up -d --build   # Build before starting (if code changed)
+# Or (if images already built)
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop all services
+docker compose down
+```
+
+### Quick Commands
+
+```bash
+# View current Phase progress
+cat docs/todo_cn.md | grep -A 20 "## 待办事项"
 ```
 
 ## Docker
 
-### 使用本地构建的镜像（推荐开发时使用）
+### Local Agent OS Startup
 
 ```bash
-# 先创建数据目录（用于SQLite持久化）
-mkdir -p ~/.flowise
+# Enter docker directory
+cd docker
 
-# 启动容器（带数据卷挂载，数据不会丢失）
-docker run -d --name flowise -p 3000:3000 -v ~/.flowise:/root/.flowise flowise:latest
+# Option 1: Build and start all services (recommended)
+# First build Flowise, then start all services
+docker build -t flowise:local ..
+docker compose up -d --build
 
-# 停止容器
-docker stop flowise
-
-# 重新启动（数据会保留）
-docker start flowise
-
-# 如果要重新开始，删除容器和镜像
-docker rm -f flowise
-```
-
-### 使用Docker Compose（官方方式）
-
-```bash
-# 从 docker/ 目录
-cp .env.example .env
+# Option 2: Start without building (when images exist)
 docker compose up -d
-# Access at http://localhost:3000
+
+# View logs
+docker compose logs -f
+
+# Stop all services
+docker compose down
+
+# Rebuild and start (with cache)
+docker compose up -d
+
+# Rebuild (without cache)
+docker compose build --no-cache
+docker compose up -d
 ```
 
-### 使用预构建镜像
+### Service Ports
 
-```bash
-docker run -d --name flowise -p 3000:3000 flowiseai/flowise:latest
-```
+| Service | Port | Description |
+|---------|------|-------------|
+| Flowise | 3000 | Orchestration layer |
+| Claude Worker (Coding) | 3001 | Coding Worker |
+| Claude Worker (Support) | 3003 | Support Worker |
+| Slack Bridge | 3002 | IM Integration |
+
+### Data Volumes
+
+Data is stored in `docker/volumes/`:
+- `flowise/` - Flowise database and files
+- `coding-agent/` - Coding Worker data (repos, workspaces, sessions)
+- `support-agent/` - Support Worker data

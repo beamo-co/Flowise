@@ -65,5 +65,6 @@ export interface JobEvent {
   jobId: string
   type: JobEventType
   timestamp: string
+  sequence?: number
   data?: Record<string, unknown>
 }

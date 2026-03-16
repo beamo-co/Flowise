@@ -4,14 +4,14 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY packages/slack-bridge/package*.json ./
+COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install
 
 # Copy source
-COPY packages/slack-bridge/src ./src
-COPY packages/slack-bridge/tsconfig.json ./
+COPY src ./src
+COPY tsconfig.json ./
 
 # Build
 RUN npm run build || true
@@ -29,10 +29,10 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 # Copy package files
-COPY packages/slack-bridge/package*.json ./
+COPY package*.json ./
 
 # Install production dependencies
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy built files
 COPY --from=builder /app/dist ./dist

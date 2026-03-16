@@ -1,7 +1,7 @@
 # =============================================================================
 # Local Agent OS - Docker Compose Configuration
 # =============================================================================
-# Usage: cp .env.example .env && docker compose up -d
+# Usage: cp .env.example .env && docker compose up -d --build
 # =============================================================================
 
 services:
@@ -9,19 +9,178 @@ services:
   # Flowise - Orchestration Layer
   # ---------------------------------------------------------------------------
   flowise:
-    image: flowise:latest
+    image: flowise:local
     build:
       context: ../.
       dockerfile: Dockerfile
     ports:
       - "${FLOWISE_PORT:-3000}:3000"
     environment:
+      # =============================================================================
+      # Base Configuration
+      # =============================================================================
       - PORT=3000
       - FLOWISE_SECRETKEY=${FLOWISE_SECRETKEY:-change-me-in-production}
-      - DATABASE_TYPE=sqlite
-      - DATABASE_PATH=/root/.flowise
+      - FLOWISE_SECRETKEY_OVERWRITE=${FLOWISE_SECRETKEY_OVERWRITE}
+
+      # =============================================================================
+      # Database Configuration
+      # =============================================================================
+      - DATABASE_TYPE=${DATABASE_TYPE:-sqlite}
+      - DATABASE_PATH=${DATABASE_PATH:-/root/.flowise}
+      - DATABASE_PORT=${DATABASE_PORT}
+      - DATABASE_HOST=${DATABASE_HOST}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_SSL=${DATABASE_SSL:-false}
+      - DATABASE_SSL_KEY_BASE64=${DATABASE_SSL_KEY_BASE64}
+
+      # =============================================================================
+      # Secret Keys Storage
+      # =============================================================================
+      - SECRETKEY_STORAGE_TYPE=${SECRETKEY_STORAGE_TYPE}
+      - SECRETKEY_PATH=${SECRETKEY_PATH}
+      - SECRETKEY_AWS_ACCESS_KEY=${SECRETKEY_AWS_ACCESS_KEY}
+      - SECRETKEY_AWS_SECRET_KEY=${SECRETKEY_AWS_SECRET_KEY}
+      - SECRETKEY_AWS_REGION=${SECRETKEY_AWS_REGION}
+      - SECRETKEY_AWS_NAME=${SECRETKEY_AWS_NAME}
+
+      # =============================================================================
+      # Logging Configuration
+      # =============================================================================
+      - DEBUG=${DEBUG:-false}
+      - LOG_PATH=${LOG_PATH}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_SANITIZE_BODY_FIELDS=${LOG_SANITIZE_BODY_FIELDS}
+      - LOG_SANITIZE_HEADER_FIELDS=${LOG_SANITIZE_HEADER_FIELDS}
+
+      # =============================================================================
+      # Custom Tool Dependencies
+      # =============================================================================
+      - TOOL_FUNCTION_BUILTIN_DEP=${TOOL_FUNCTION_BUILTIN_DEP}
+      - TOOL_FUNCTION_EXTERNAL_DEP=${TOOL_FUNCTION_EXTERNAL_DEP}
+      - ALLOW_BUILTIN_DEP=${ALLOW_BUILTIN_DEP:-false}
+
+      # =============================================================================
+      # Storage Configuration
+      # =============================================================================
+      - STORAGE_TYPE=${STORAGE_TYPE}
+      - BLOB_STORAGE_PATH=${BLOB_STORAGE_PATH}
+      - S3_STORAGE_BUCKET_NAME=${S3_STORAGE_BUCKET_NAME}
+      - S3_STORAGE_ACCESS_KEY_ID=${S3_STORAGE_ACCESS_KEY_ID}
+      - S3_STORAGE_SECRET_ACCESS_KEY=${S3_STORAGE_SECRET_ACCESS_KEY}
+      - S3_STORAGE_REGION=${S3_STORAGE_REGION}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-false}
+      - GOOGLE_CLOUD_STORAGE_CREDENTIAL=${GOOGLE_CLOUD_STORAGE_CREDENTIAL}
+      - GOOGLE_CLOUD_STORAGE_PROJ_ID=${GOOGLE_CLOUD_STORAGE_PROJ_ID}
+      - GOOGLE_CLOUD_STORAGE_BUCKET_NAME=${GOOGLE_CLOUD_STORAGE_BUCKET_NAME}
+      - GOOGLE_CLOUD_UNIFORM_BUCKET_ACCESS=${GOOGLE_CLOUD_UNIFORM_BUCKET_ACCESS:-false}
+      - AZURE_BLOB_STORAGE_CONNECTION_STRING=${AZURE_BLOB_STORAGE_CONNECTION_STRING}
+      - AZURE_BLOB_STORAGE_ACCOUNT_NAME=${AZURE_BLOB_STORAGE_ACCOUNT_NAME}
+      - AZURE_BLOB_STORAGE_ACCOUNT_KEY=${AZURE_BLOB_STORAGE_ACCOUNT_KEY}
+      - AZURE_BLOB_STORAGE_CONTAINER_NAME=${AZURE_BLOB_STORAGE_CONTAINER_NAME}
+
+      # =============================================================================
+      # Application Settings
+      # =============================================================================
+      - NUMBER_OF_PROXIES=${NUMBER_OF_PROXIES:-1}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - IFRAME_ORIGINS=${IFRAME_ORIGINS}
+      - FLOWISE_FILE_SIZE_LIMIT=${FLOWISE_FILE_SIZE_LIMIT:-50}
+      - SHOW_COMMUNITY_NODES=${SHOW_COMMUNITY_NODES:-true}
+      - DISABLE_FLOWISE_TELEMETRY=${DISABLE_FLOWISE_TELEMETRY:-false}
+      - DISABLED_NODES=${DISABLED_NODES}
+      - MODEL_LIST_CONFIG_JSON=${MODEL_LIST_CONFIG_JSON}
+
+      # =============================================================================
+      # Authentication
+      # =============================================================================
+      - APP_URL=${APP_URL}
+      - JWT_AUTH_TOKEN_SECRET=${JWT_AUTH_TOKEN_SECRET}
+      - JWT_REFRESH_TOKEN_SECRET=${JWT_REFRESH_TOKEN_SECRET}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+      - JWT_TOKEN_EXPIRY_IN_MINUTES=${JWT_TOKEN_EXPIRY_IN_MINUTES:-4320}
+      - JWT_REFRESH_TOKEN_EXPIRY_IN_MINUTES=${JWT_REFRESH_TOKEN_EXPIRY_IN_MINUTES:-10080}
+      - EXPIRE_AUTH_TOKENS_ON_RESTART=${EXPIRE_AUTH_TOKENS_ON_RESTART:-false}
+      - EXPRESS_SESSION_SECRET=${EXPRESS_SESSION_SECRET}
+      - PASSWORD_RESET_TOKEN_EXPIRY_IN_MINS=${PASSWORD_RESET_TOKEN_EXPIRY_IN_MINS:-30}
+      - PASSWORD_SALT_HASH_ROUNDS=${PASSWORD_SALT_HASH_ROUNDS:-10}
+      - TOKEN_HASH_SECRET=${TOKEN_HASH_SECRET}
+      - SECURE_COOKIES=${SECURE_COOKIES:-true}
+
+      # =============================================================================
+      # Email Configuration
+      # =============================================================================
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - ALLOW_UNAUTHORIZED_CERTS=${ALLOW_UNAUTHORIZED_CERTS:-false}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+
+      # =============================================================================
+      # Enterprise Features
+      # =============================================================================
+      - LICENSE_URL=${LICENSE_URL}
+      - FLOWISE_EE_LICENSE_KEY=${FLOWISE_EE_LICENSE_KEY}
+      - OFFLINE=${OFFLINE:-false}
+      - INVITE_TOKEN_EXPIRY_IN_HOURS=${INVITE_TOKEN_EXPIRY_IN_HOURS}
+      - WORKSPACE_INVITE_TEMPLATE_PATH=${WORKSPACE_INVITE_TEMPLATE_PATH}
+
+      # =============================================================================
+      # Metrics Collection
+      # =============================================================================
+      - POSTHOG_PUBLIC_API_KEY=${POSTHOG_PUBLIC_API_KEY}
+      - ENABLE_METRICS=${ENABLE_METRICS:-false}
+      - METRICS_PROVIDER=${METRICS_PROVIDER}
+      - METRICS_INCLUDE_NODE_METRICS=${METRICS_INCLUDE_NODE_METRICS:-false}
+      - METRICS_SERVICE_NAME=${METRICS_SERVICE_NAME}
+      - METRICS_OPEN_TELEMETRY_METRIC_ENDPOINT=${METRICS_OPEN_TELEMETRY_METRIC_ENDPOINT}
+      - METRICS_OPEN_TELEMETRY_PROTOCOL=${METRICS_OPEN_TELEMETRY_PROTOCOL}
+      - METRICS_OPEN_TELEMETRY_DEBUG=${METRICS_OPEN_TELEMETRY_DEBUG:-false}
+
+      # =============================================================================
+      # Proxy Configuration
+      # =============================================================================
+      - GLOBAL_AGENT_HTTP_PROXY=${GLOBAL_AGENT_HTTP_PROXY}
+      - GLOBAL_AGENT_HTTPS_PROXY=${GLOBAL_AGENT_HTTPS_PROXY}
+      - GLOBAL_AGENT_NO_PROXY=${GLOBAL_AGENT_NO_PROXY}
+
+      # =============================================================================
+      # Queue Configuration (BullMQ)
+      # =============================================================================
+      - MODE=${MODE}
+      - QUEUE_NAME=${QUEUE_NAME:-flowise_queue}
+      - QUEUE_REDIS_EVENT_STREAM_MAX_LEN=${QUEUE_REDIS_EVENT_STREAM_MAX_LEN:-1000}
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-3}
+      - REMOVE_ON_AGE=${REMOVE_ON_AGE}
+      - REMOVE_ON_COUNT=${REMOVE_ON_COUNT}
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_USERNAME=${REDIS_USERNAME}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_TLS=${REDIS_TLS:-false}
+      - REDIS_CERT=${REDIS_CERT}
+      - REDIS_KEY=${REDIS_KEY}
+      - REDIS_CA=${REDIS_CA}
+      - REDIS_KEEP_ALIVE=${REDIS_KEEP_ALIVE:-false}
+      - ENABLE_BULLMQ_DASHBOARD=${ENABLE_BULLMQ_DASHBOARD:-false}
+
+      # =============================================================================
+      # Security
+      # =============================================================================
+      - CUSTOM_MCP_SECURITY_CHECK=${CUSTOM_MCP_SECURITY_CHECK:-true}
+      - CUSTOM_MCP_PROTOCOL=${CUSTOM_MCP_PROTOCOL}
+      - HTTP_DENY_LIST=${HTTP_DENY_LIST}
+      - HTTP_SECURITY_CHECK=${HTTP_SECURITY_CHECK:-true}
+      - TRUST_PROXY=${TRUST_PROXY:-true}
     volumes:
-      - ../volumes/flowise:/root/.flowise
+      - ./volumes/flowise:/root/.flowise
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/v1/health"]
@@ -33,9 +192,10 @@ services:
   # Claude Worker - Coding Agent
   # ---------------------------------------------------------------------------
   claude-worker-coding:
+    image: claude-worker:test
     build:
-      context: ../packages/claude-worker
-      dockerfile: ../docker/services/claude-worker/Dockerfile
+      context: ../claude-worker
+      dockerfile: docker/Dockerfile
     ports:
       - "3001:3001"
     environment:
@@ -46,7 +206,7 @@ services:
       - DATA_ROOT=/data
       - MAX_CONCURRENCY=2
     volumes:
-      - ../volumes/coding-agent:/data
+      - ./volumes/coding-agent:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
@@ -58,9 +218,10 @@ services:
   # Claude Worker - Support Agent
   # ---------------------------------------------------------------------------
   claude-worker-support:
+    image: claude-worker:test
     build:
-      context: ../packages/claude-worker
-      dockerfile: ../docker/services/claude-worker/Dockerfile
+      context: ../claude-worker
+      dockerfile: docker/Dockerfile
     ports:
       - "3003:3001"
     environment:
@@ -71,7 +232,7 @@ services:
       - DATA_ROOT=/data
       - MAX_CONCURRENCY=5
     volumes:
-      - ../volumes/support-agent:/data
+      - ./volumes/support-agent:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
@@ -83,9 +244,10 @@ services:
   # Slack Bridge - IM Integration
   # ---------------------------------------------------------------------------
   slack-bridge:
+    image: slack-bridge:test
     build:
-      context: ../packages/slack-bridge
-      dockerfile: ../docker/services/slack-bridge/Dockerfile
+      context: ../slack-bridge
+      dockerfile: docker/Dockerfile
     ports:
       - "3002:3002"
     environment:

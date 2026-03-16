@@ -157,7 +157,7 @@ app.get('/jobs/:id/events/stream', (req: Request, res: Response) => {
 
   // Send initial events
   for (const event of events) {
-    res.write(`data: ${JSON.stringify({ type: 'event', ...event })}\n\n`)
+    res.write(`data: ${JSON.stringify({ eventType: 'event', ...event })}\n\n`)
   }
 
   // For now, we just send existing events

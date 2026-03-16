@@ -8,3 +8,10 @@ build
 
 packages/server/.env
 packages/ui/.env
+
+# Local Agent OS - Exclude from Flowise build
+claude-worker
+slack-bridge
+docker/volumes
+docker/.env
+.env
