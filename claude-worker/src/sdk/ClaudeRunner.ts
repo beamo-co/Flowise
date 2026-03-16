@@ -1,7 +1,7 @@
-import { Anthropic } from '@anthropic-ai/sdk'
+import { query, type Options } from '@anthropic-ai/claude-agent-sdk'
 import { getConfig } from '../config'
 import { getLogger } from '../logger'
-import { JobInput, JobEventType } from '../jobs/types'
+import { JobEventType } from '../jobs/types'
 import { eventRepository } from '../repositories'
 import { sessionRepository } from '../repositories/SessionRepository'
 
@@ -13,12 +13,12 @@ export interface RunOptions {
   workspacePath?: string
   sessionId?: string
   resume?: boolean
-  permissionMode?: 'auto' | 'ask'
+  permissionMode?: 'auto' | 'ask' | 'default'
   onEvent?: (event: ClaudeEvent) => void
 }
 
 export interface ClaudeEvent {
-  type: 'message_start' | 'content_block_start' | 'content_block_delta' | 'content_block_stop' | 'message_delta' | 'message_stop' | 'error' | 'tool_use' | 'tool_result'
+  type: string
   data: Record<string, unknown>
 }
 
@@ -29,23 +29,12 @@ export interface RunResult {
 }
 
 export class ClaudeRunner {
-  private client: Anthropic
-
   constructor() {
-    const config = getConfig()
-    const apiKey = process.env.ANTHROPIC_API_KEY
-
-    if (!apiKey) {
-      logger.warn('ANTHROPIC_API_KEY not set, Claude SDK will not work')
-    }
-
-    this.client = new Anthropic({
-      apiKey: apiKey || 'dummy-key-for-type-check',
-    })
+    logger.info('ClaudeRunner initialized with Claude Agent SDK')
   }
 
   async run(options: RunOptions): Promise<RunResult> {
-    const { jobId, prompt, workspacePath, sessionId, resume = false, permissionMode = 'ask', onEvent } = options
+    const { jobId, prompt, workspacePath, sessionId, resume = false, permissionMode = 'default', onEvent } = options
     const config = getConfig()
 
     logger.info({ jobId, workspacePath, resume, permissionMode }, 'Starting Claude run')
@@ -54,7 +43,6 @@ export class ClaudeRunner {
     let currentSessionId = sessionId
 
     if (!currentSessionId) {
-      // Create new session in database
       const session = sessionRepository.create({
         namespace: config.SESSION_NAMESPACE,
         jobId,
@@ -64,41 +52,73 @@ export class ClaudeRunner {
     }
 
     try {
-      // For local Claude Code execution, we'd use claude-agent-sdk
-      // But for this implementation, we'll simulate with API calls
-      // In production, this would use the actual Claude Code SDK
+      // Clear Claude Code environment variable to allow nested invocation
+      delete process.env.CLAUDECODE
 
-      const response = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4096,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        system: [
-          {
-            type: 'text',
-            text: this.getSystemPrompt(config.WORKER_ROLE),
-          },
-        ],
+      const outputParts: string[] = []
+
+      const queryOptions: Options = {
+        pathToClaudeCodeExecutable: 'claude',
+        cwd: workspacePath || process.cwd(),
+        permissionMode: 'bypassPermissions',
+      }
+
+      logger.info({ jobId }, 'Executing Claude query via SDK')
+
+      const stream = query({
+        prompt,
+        options: queryOptions,
       })
 
-      // Extract output text
-      const outputText = this.extractTextFromResponse(response)
+      // Process streaming response
+      for await (const msg of stream as any) {
+        const msgType = msg.type
 
-      // Save session mapping
+        if (msgType === 'assistant') {
+          if (msg.message?.content) {
+            for (const block of msg.message.content) {
+              if (block.type === 'text' && block.text) {
+                outputParts.push(block.text)
+              }
+            }
+          }
+          onEvent?.({ type: 'assistant', data: msg as unknown as Record<string, unknown> })
+        } else if (msgType === 'tool_use') {
+          logger.info({ jobId, toolName: msg.toolName }, 'Tool requested')
+          eventRepository.create(jobId, JobEventType.TOOL_REQUESTED, {
+            toolName: msg.toolName,
+            toolInput: msg.input,
+          })
+          onEvent?.({ type: 'tool_use', data: msg as unknown as Record<string, unknown> })
+        } else if (msgType === 'tool_result') {
+          logger.info({ jobId }, 'Tool result received')
+          eventRepository.create(jobId, JobEventType.TOOL_RESULT, {
+            toolName: msg.toolName,
+            result: msg.result,
+          })
+          onEvent?.({ type: 'tool_result', data: msg as unknown as Record<string, unknown> })
+        } else if (msgType === 'message_start') {
+          eventRepository.create(jobId, JobEventType.STARTED, {})
+          onEvent?.({ type: 'message_start', data: msg as unknown as Record<string, unknown> })
+        } else if (msgType === 'message_stop') {
+          logger.info({ jobId }, 'Claude execution completed')
+          eventRepository.create(jobId, JobEventType.SUCCEEDED, {})
+          onEvent?.({ type: 'message_stop', data: msg as unknown as Record<string, unknown> })
+        } else if (msgType === 'error') {
+          const errorMsg = msg.error?.message || 'Unknown error'
+          logger.error({ jobId, error: errorMsg }, 'Claude error')
+          eventRepository.create(jobId, JobEventType.ERROR, { error: errorMsg })
+          onEvent?.({ type: 'error', data: msg as unknown as Record<string, unknown> })
+        }
+      }
+
+      const outputText = outputParts.join('\n')
+
       if (currentSessionId) {
         sessionRepository.update(currentSessionId, { jobId })
       }
 
-      eventRepository.create(jobId, JobEventType.SUCCEEDED, {
-        sessionId: currentSessionId,
-        output: outputText,
-      })
-
-      logger.info({ jobId, sessionId: currentSessionId }, 'Claude run completed')
+      logger.info({ jobId, sessionId: currentSessionId, outputLength: outputText.length }, 'Claude run completed')
 
       return {
         sessionId: currentSessionId,
@@ -122,51 +142,11 @@ export class ClaudeRunner {
     }
   }
 
-  private getSystemPrompt(role: string): string {
-    switch (role) {
-      case 'coding':
-        return `You are an expert coding assistant. Your role is to help with code-related tasks including:
-- Writing and editing code
-- Debugging and fixing issues
-- Creating pull requests
-- Code reviews
-- Running tests
-
-Always use best practices and write clean, maintainable code.`
-      case 'support':
-        return `You are a customer support assistant. Your role is to help customers with:
-- Answering questions
-- Troubleshooting issues
-- Providing documentation guidance
-- Escalating complex issues when needed
-
-Be polite, helpful, and accurate.`
-      default:
-        return `You are a helpful AI assistant.`
-    }
-  }
-
-  private extractTextFromResponse(response: any): string {
-    const textParts: string[] = []
-
-    if (response.content) {
-      for (const block of response.content) {
-        if (block.type === 'text') {
-          textParts.push(block.text)
-        }
-      }
-    }
-
-    return textParts.join('\n')
-  }
-
-  // Check if API key is configured
   isConfigured(): boolean {
-    return !!process.env.ANTHROPIC_API_KEY
+    return true
   }
 }
 
-// Singleton instance
 let claudeRunner: ClaudeRunner | null = null
 
 export function getClaudeRunner(): ClaudeRunner {

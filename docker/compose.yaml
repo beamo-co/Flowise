@@ -205,6 +205,8 @@ services:
       - SESSION_NAMESPACE=coding
       - DATA_ROOT=/data
       - MAX_CONCURRENCY=2
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}
     volumes:
       - ./volumes/coding-agent:/data
     restart: unless-stopped

@@ -58,6 +58,9 @@ export enum JobEventType {
   SUCCEEDED = 'succeeded',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
+  TOOL_REQUESTED = 'tool_requested',
+  TOOL_RESULT = 'tool_result',
+  ERROR = 'error',
 }
 
 export interface JobEvent {

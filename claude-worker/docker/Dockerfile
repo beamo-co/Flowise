@@ -24,8 +24,11 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install runtime dependencies for native modules
-RUN apk add --no-cache python3 make g++ libc-dev
+# Install runtime dependencies for native modules and Claude Code CLI
+RUN apk add --no-cache python3 make g++ libc-dev curl
+
+# Install Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
