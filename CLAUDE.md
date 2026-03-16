@@ -187,7 +187,24 @@ docker build -t claude-worker:test -f claude-worker/docker/Dockerfile claude-wor
 
 # Build Slack Bridge image
 docker build -t slack-bridge:test -f slack-bridge/docker/Dockerfile slack-bridge
+```
 
+### Environment Setup
+
+Before running Claude Worker, copy `.env.example` to `.env` and configure:
+
+```bash
+cd docker
+cp .env.example .env
+
+# Edit .env and add your Anthropic credentials:
+# ANTHROPIC_AUTH_TOKEN=your-token
+# ANTHROPIC_BASE_URL=https://api.anthropic.com (or custom endpoint)
+```
+
+### Docker Compose Commands
+
+```bash
 # Start all services (from docker directory)
 cd docker
 docker compose up -d --build   # Build before starting (if code changed)
