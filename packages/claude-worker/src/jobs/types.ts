@@ -48,8 +48,10 @@ export type JobOutput = z.infer<typeof jobOutputSchema>
 // Job event types
 export enum JobEventType {
   CREATED = 'created',
+  UPDATED = 'updated',
   STARTED = 'started',
   OUTPUT = 'output',
+  WAITING_APPROVAL = 'waiting_approval',
   APPROVAL_REQUIRED = 'approval_required',
   APPROVED = 'approved',
   REJECTED = 'rejected',

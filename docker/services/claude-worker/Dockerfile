@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install build tools for native modules
+RUN apk add --no-cache python3 make g++
+
 # Copy package files
 COPY package*.json ./
 
@@ -21,6 +24,9 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+# Install runtime dependencies for native modules
+RUN apk add --no-cache python3 make g++ libc-dev
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
@@ -28,8 +34,9 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies
-RUN npm install --omit=dev
+# Install production dependencies (with rebuild for native modules)
+RUN npm install --omit=dev --ignore-scripts && \
+    npm rebuild better-sqlite3
 
 # Copy built files
 COPY --from=builder /app/dist ./dist
