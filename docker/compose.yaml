@@ -21,13 +21,13 @@ services:
       # =============================================================================
       - PORT=3000
       - FLOWISE_SECRETKEY=${FLOWISE_SECRETKEY:-change-me-in-production}
-      - FLOWISE_SECRETKEY_OVERWRITE=${FLOWISE_SECRETKEY_OVERWRITE}
+      - FLOWISE_SECRETKEY_OVERWRITE=${FLOWISE_SECRETKEY_OVERWRITE:-true}
 
       # =============================================================================
       # Database Configuration
       # =============================================================================
       - DATABASE_TYPE=${DATABASE_TYPE:-sqlite}
-      - DATABASE_PATH=${DATABASE_PATH:-/root/.flowise}
+      - DATABASE_PATH=${DATABASE_PATH:-/home/node/.flowise}
       - DATABASE_PORT=${DATABASE_PORT}
       - DATABASE_HOST=${DATABASE_HOST}
       - DATABASE_NAME=${DATABASE_NAME}
@@ -50,7 +50,7 @@ services:
       # Logging Configuration
       # =============================================================================
       - DEBUG=${DEBUG:-false}
-      - LOG_PATH=${LOG_PATH}
+      - LOG_PATH=${LOG_PATH:-/home/node/.flowise/logs}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_SANITIZE_BODY_FIELDS=${LOG_SANITIZE_BODY_FIELDS}
       - LOG_SANITIZE_HEADER_FIELDS=${LOG_SANITIZE_HEADER_FIELDS}
@@ -180,7 +180,7 @@ services:
       - HTTP_SECURITY_CHECK=${HTTP_SECURITY_CHECK:-true}
       - TRUST_PROXY=${TRUST_PROXY:-true}
     volumes:
-      - ./volumes/flowise:/root/.flowise
+      - ./volumes/flowise:/home/node/.flowise
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/v1/health"]

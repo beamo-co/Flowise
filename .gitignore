@@ -29,6 +29,9 @@
 # misc
 .DS_Store
 
+## docker volumes
+docker/volumes
+
 ## env
 .env.local
 .env.development.local

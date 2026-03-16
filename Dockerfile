@@ -32,7 +32,8 @@ COPY . .
 
 # Install dependencies and build
 RUN pnpm install && \
-    pnpm build
+    pnpm build && \
+    cd packages/server && pnpm oclif manifest
 
 # Give the node user ownership of the application files
 RUN chown -R node:node .

@@ -81,7 +81,7 @@ Flowise/
       slack-bridge/
         Dockerfile
     compose.yaml     # Docker Compose配置（volume挂载在compose中定义）
-  volumes/           # 持久化数据（通过compose的volumes挂载）
+  docker/volumes/           # 持久化数据（通过compose的volumes挂载）
     flowise/        # Flowise 数据库
     coding-agent/   # Coding Agent数据目录
       repos/        # Git仓库持久化克隆
@@ -127,7 +127,7 @@ Flowise/
 1. 创建 `packages/claude-worker/` 源代码目录结构
 2. 创建 `packages/slack-bridge/` 源代码目录结构
 3. 创建 `docker/services/` 目录（仅放置 Dockerfile）
-4. 创建 `volumes/` 目录（持久化数据）
+4. 创建 `docker/volumes/` 目录（持久化数据）
 5. 创建根目录 `.env.example` 配置文件
 6. 创建 `docker/compose.yaml` 草案
 
@@ -136,8 +136,8 @@ Flowise/
 - `docker/compose.yaml`
 - `docker/services/claude-worker/Dockerfile`
 - `docker/services/slack-bridge/Dockerfile`
-- `volumes/coding-agent/`
-- `volumes/support-agent/`
+- `docker/volumes/coding-agent/`
+- `docker/volumes/support-agent/`
 
 ---
 
@@ -197,8 +197,8 @@ Flowise/
 5. 更新API读写持久化状态
 
 **数据持久化位置**:
-- **Worker SQLite**: `DATA_ROOT/worker.db` → `./volumes/coding-agent/worker.db`
-- **Flowise SQLite**: 通过 volumes 挂载：`./volumes/flowise:/root/.flowise`
+- **Worker SQLite**: `DATA_ROOT/worker.db` → `./docker/volumes/coding-agent/worker.db`
+- **Flowise SQLite**: 通过 volumes 挂载：`./docker/volumes/flowise:/root/.flowise`
 
 **关键文件**:
 - `packages/claude-worker/src/db/schema.ts`
@@ -395,11 +395,11 @@ Flowise/
 **目标**: 通过版本控制的角色特定指令稳定行为
 
 **任务**:
-1. 创建 `volumes/coding-agent/skills/` 文档:
+1. 创建 `docker/volumes/coding-agent/skills/` 文档:
    - `use-worktree.md`
    - `create-pr.md`
    - `code-review.md`
-2. 创建 `volumes/support-agent/skills/` 文档:
+2. 创建 `docker/volumes/support-agent/skills/` 文档:
    - `answer-customer.md`
    - `escalate-issue.md`
 3. 定义工具的政策注册表
