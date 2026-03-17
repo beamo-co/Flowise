@@ -8,6 +8,7 @@ import { getClaudeRunner, RunOptions } from '../sdk/ClaudeRunner'
 // Job Manager class - now uses SQLite persistence and Claude SDK
 export class JobManager {
   private logger: ReturnType<typeof getLogger>
+  private pendingEvents: Map<string, JobEvent[]> = new Map()
 
   constructor() {
     this.logger = getLogger('JobManager')
@@ -25,15 +26,30 @@ export class JobManager {
     })
 
     // Add initial event
-    eventRepository.create(job.id, JobEventType.CREATED, { input: validated })
+    const createdEvent = eventRepository.create(job.id, JobEventType.CREATED, { input: validated })
+    this.addPendingEvent(job.id, {
+      id: createdEvent.id,
+      jobId: job.id,
+      type: JobEventType.CREATED,
+      timestamp: createdEvent.created_at.toISOString(),
+      data: { input: validated } as Record<string, unknown>,
+    })
 
     this.logger.info({ jobId: job.id, prompt: job.input.prompt }, 'Job created')
     return job
   }
 
   // Get job by ID
-  getJob(id: string): Job | null {
-    return jobRepository.getById(id)
+  getJob(id: string): (Job & { pendingEvents: JobEvent[] }) | null {
+    const job = jobRepository.getById(id)
+    if (job) {
+      // Get and clear pending events
+      const pendingEvents = this.getAndClearPendingEvents(id)
+      // Add pendingEvents directly to job object
+      ;(job as any).pendingEvents = pendingEvents
+      return job as Job & { pendingEvents: JobEvent[] }
+    }
+    return null
   }
 
   // Get all jobs
@@ -56,6 +72,20 @@ export class JobManager {
       timestamp: e.created_at.toISOString(),
       data: e.payload as Record<string, unknown>,
     }))
+  }
+
+  // Add event to pending events (for incremental return)
+  addPendingEvent(jobId: string, event: JobEvent): void {
+    const events = this.pendingEvents.get(jobId) || []
+    events.push(event)
+    this.pendingEvents.set(jobId, events)
+  }
+
+  // Get and clear pending events
+  getAndClearPendingEvents(jobId: string): JobEvent[] {
+    const events = this.pendingEvents.get(jobId) || []
+    this.pendingEvents.delete(jobId)
+    return events
   }
 
   // Get running jobs count
@@ -87,7 +117,17 @@ export class JobManager {
     const job = jobRepository.update(id, updates)
 
     if (job) {
-      eventRepository.create(id, this.statusToEventType(status), output || {})
+      const eventType = this.statusToEventType(status)
+      const event = eventRepository.create(id, eventType, output || {})
+
+      // Write to pending events for incremental return
+      this.addPendingEvent(id, {
+        id: event.id,
+        jobId: id,
+        type: eventType,
+        timestamp: event.created_at.toISOString(),
+        data: (output || {}) as Record<string, unknown>,
+      })
     }
 
     return job
@@ -118,6 +158,23 @@ export class JobManager {
         return JobEventType.WAITING_APPROVAL
       default:
         return JobEventType.UPDATED
+    }
+  }
+
+  private claudeEventToJobEventType(type: string): JobEventType | null {
+    switch (type) {
+      case 'message_start':
+        return JobEventType.STARTED
+      case 'tool_use':
+        return JobEventType.TOOL_REQUESTED
+      case 'tool_result':
+        return JobEventType.TOOL_RESULT
+      case 'message_stop':
+        return JobEventType.SUCCEEDED
+      case 'error':
+        return JobEventType.ERROR
+      default:
+        return null
     }
   }
 
@@ -157,6 +214,19 @@ export class JobManager {
       workspacePath: job.workspace_path,
       sessionId: job.session_id,
       permissionMode: 'ask',
+      onEvent: (event) => {
+        // Convert Claude SDK events to JobEvents and add to pending
+        const eventType = this.claudeEventToJobEventType(event.type)
+        if (eventType) {
+          this.addPendingEvent(job.id, {
+            id: `${job.id}-${Date.now()}`,
+            jobId: job.id,
+            type: eventType,
+            timestamp: new Date().toISOString(),
+            data: event.data,
+          })
+        }
+      },
     }
 
     try {
