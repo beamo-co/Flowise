@@ -165,6 +165,8 @@ export class JobManager {
     switch (type) {
       case 'message_start':
         return JobEventType.STARTED
+      case 'assistant':
+        return JobEventType.OUTPUT
       case 'tool_use':
         return JobEventType.TOOL_REQUESTED
       case 'tool_result':
