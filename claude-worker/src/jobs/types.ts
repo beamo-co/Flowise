@@ -25,7 +25,7 @@ export const jobInputSchema = z.object({
   workerType: z.enum(['coding', 'support']).optional().default('coding'),
   sessionId: z.string().optional(),
   priority: z.number().min(1).max(4).optional().default(JobPriority.NORMAL),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 export type JobInput = z.infer<typeof jobInputSchema>

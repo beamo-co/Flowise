@@ -25,11 +25,13 @@ export class WorkspaceManager {
   private config: ReturnType<typeof getConfig>
   private reposDir: string
   private workspacesDir: string
+  private sessionsDir: string
 
   constructor() {
     this.config = getConfig()
     this.reposDir = path.join(this.config.DATA_ROOT, 'repos')
     this.workspacesDir = path.join(this.config.DATA_ROOT, 'workspaces')
+    this.sessionsDir = path.join(this.config.DATA_ROOT, 'sessions')
 
     this.ensureDirectories()
   }
@@ -44,6 +46,16 @@ export class WorkspaceManager {
       fs.mkdirSync(this.workspacesDir, { recursive: true })
       logger.info({ dir: this.workspacesDir }, 'Created workspaces directory')
     }
+
+    if (!fs.existsSync(this.sessionsDir)) {
+      fs.mkdirSync(this.sessionsDir, { recursive: true })
+      logger.info({ dir: this.sessionsDir }, 'Created sessions directory')
+    }
+  }
+
+  // Get sessions directory for session-based workspaces
+  getSessionsDir(): string {
+    return this.sessionsDir
   }
 
   // Get the persistent clone path for a repo
@@ -86,9 +98,11 @@ export class WorkspaceManager {
   }
 
   // Create a worktree for a job
-  async createWorktree(jobId: string, repoUrl: string, branch?: string): Promise<WorkspaceInfo> {
+  async createWorktree(jobId: string, repoUrl: string, branch?: string, sessionId?: string): Promise<WorkspaceInfo> {
     const repoPath = this.getRepoPath(repoUrl)
-    const worktreePath = path.join(this.workspacesDir, `job-${jobId}`)
+    // Use sessionId if provided, otherwise fall back to jobId
+    const workspaceName = sessionId ? `session-${sessionId}` : `job-${jobId}`
+    const worktreePath = path.join(this.workspacesDir, workspaceName)
     const branchName = branch || `job-${jobId}-${uuidv4().slice(0, 8)}`
 
     // Ensure the repo exists
@@ -134,8 +148,10 @@ export class WorkspaceManager {
   }
 
   // Remove a worktree
-  removeWorktree(jobId: string): boolean {
-    const worktreePath = path.join(this.workspacesDir, `job-${jobId}`)
+  removeWorktree(jobId: string, sessionId?: string): boolean {
+    // Use sessionId if provided, otherwise fall back to jobId
+    const workspaceName = sessionId ? `session-${sessionId}` : `job-${jobId}`
+    const worktreePath = path.join(this.workspacesDir, workspaceName)
 
     if (!fs.existsSync(worktreePath)) {
       logger.warn({ jobId, worktreePath }, 'Worktree does not exist')
@@ -182,8 +198,10 @@ export class WorkspaceManager {
   }
 
   // Get workspace info for a job
-  getWorkspaceInfo(jobId: string): WorkspaceInfo | null {
-    const worktreePath = path.join(this.workspacesDir, `job-${jobId}`)
+  getWorkspaceInfo(jobId: string, sessionId?: string): WorkspaceInfo | null {
+    // Use sessionId if provided, otherwise fall back to jobId
+    const workspaceName = sessionId ? `session-${sessionId}` : `job-${jobId}`
+    const worktreePath = path.join(this.workspacesDir, workspaceName)
 
     if (!fs.existsSync(worktreePath)) {
       return null

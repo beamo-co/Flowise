@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install build tools for native modules
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ bash
 
 # Copy package files
 COPY package*.json ./
@@ -25,7 +25,7 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # Install runtime dependencies for native modules and Claude Code CLI
-RUN apk add --no-cache python3 make g++ libc-dev curl
+RUN apk add --no-cache python3 make g++ bash libc-dev curl
 
 # Install Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code

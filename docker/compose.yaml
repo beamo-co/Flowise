@@ -24,6 +24,12 @@ services:
       - FLOWISE_SECRETKEY_OVERWRITE=${FLOWISE_SECRETKEY_OVERWRITE:-true}
 
       # =============================================================================
+      # Worker Configuration
+      # =============================================================================
+      - CODING_WORKER_URL=http://claude-worker-coding:3001
+      - SUPPORT_WORKER_URL=http://claude-worker-support:3001
+
+      # =============================================================================
       # Database Configuration
       # =============================================================================
       - DATABASE_TYPE=${DATABASE_TYPE:-sqlite}
@@ -177,7 +183,7 @@ services:
       - CUSTOM_MCP_SECURITY_CHECK=${CUSTOM_MCP_SECURITY_CHECK:-true}
       - CUSTOM_MCP_PROTOCOL=${CUSTOM_MCP_PROTOCOL}
       - HTTP_DENY_LIST=${HTTP_DENY_LIST}
-      - HTTP_SECURITY_CHECK=${HTTP_SECURITY_CHECK:-true}
+      - HTTP_SECURITY_CHECK=${HTTP_SECURITY_CHECK:-false}
       - TRUST_PROXY=${TRUST_PROXY:-true}
     volumes:
       - ./volumes/flowise:/home/node/.flowise

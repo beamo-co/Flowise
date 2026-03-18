@@ -272,3 +272,89 @@ Data is stored in `docker/volumes/`:
 - `flowise/` - Flowise database and files
 - `coding-agent/` - Coding Worker data (repos, workspaces, sessions)
 - `support-agent/` - Support Worker data
+
+### Import Worker Tools to Flowise
+
+Pre-built tool JSON files are available for import:
+
+| File | Description | Worker |
+|------|-------------|--------|
+| `scripts/worker-tools.json` | Coding Worker tools | claude-worker-coding:3001 |
+| `scripts/support-tools.json` | Support Worker tools | claude-worker-support:3001 |
+
+**Import Steps:**
+
+1. Open Flowise UI at http://localhost:3000
+2. Go to **Tools** → **Add Tool** → **Import Tools**
+3. Select the JSON file (`scripts/worker-tools.json` or `scripts/support-tools.json`)
+4. Configure environment variable `WORKER_URL` (or `SUPPORT_WORKER_URL`):
+   - For local testing: `http://host.docker.internal:3001`
+   - For Docker Compose: `http://claude-worker-coding:3001`
+
+**Available Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `WorkerCreateJob` | Create a new coding job |
+| `WorkerGetJobStatus` | Check job status |
+| `WorkerGetJobResult` | Get job result |
+| `WorkerApproveAction` | Approve/reject pending action |
+| `WorkerGetJobEvents` | Get job event history |
+| `WorkerListJobs` | List all jobs or filter by status |
+
+**Environment Variables (in Flowise):**
+
+Set these in Flowise **Settings** → **Env Variables**:
+- `WORKER_URL` - Coding worker URL (default: `http://claude-worker-coding:3001`)
+- `SUPPORT_WORKER_URL` - Support worker URL (default: `http://claude-worker-support:3001`)
+
+### Import Tools via API
+
+You can also import tools programmatically using the API:
+
+```bash
+# Install dependencies
+cd scripts
+npm install axios
+
+# Import worker tools
+node import-tools.js
+
+# Import support tools
+node import-tools.js support
+
+# Custom Flowise URL
+node import-tools.js --url http://localhost:3000
+
+# Or use environment variables
+export FLOWISE_URL=http://localhost:3000
+export FLOWISE_EMAIL=admin@example.com
+export FLOWISE_PASSWORD=your-password
+node import-tools.js
+```
+
+**API Endpoints used:**
+- `POST /api/v1/auth/login` - Authenticate
+- `POST /api/v1/tools` - Create tool
+
+### Import Agent Flow via API
+
+```bash
+cd scripts
+
+# Import coding agent flow
+node import-agentflow.js
+
+# Import with custom name
+node import-agentflow.js --name "My Coding Agent"
+
+# Import custom flow file
+node import-agentflow.js --file my-flow.json
+```
+
+**Agent Flow Files:**
+
+| File | Description |
+|------|-------------|
+| `scripts/coding-agent-flow.json` | Coding Agent with Claude Sonnet + Worker tools |
+| `scripts/support-agent-flow.json` | Support Agent with Worker tools |

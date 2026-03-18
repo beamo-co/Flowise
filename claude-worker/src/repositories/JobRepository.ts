@@ -45,14 +45,17 @@ export class JobRepository {
     const id = uuidv4()
     const now = new Date().toISOString()
 
+    // Extract session_id from input.sessionId if provided
+    const inputSessionId = params.input?.sessionId || null
+
     const stmt = db.prepare(`
-      INSERT INTO jobs (id, role, status, input, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO jobs (id, role, status, session_id, input, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
 
-    stmt.run(id, params.role, 'pending', JSON.stringify(params.input), now, now)
+    stmt.run(id, params.role, 'pending', inputSessionId, JSON.stringify(params.input), now, now)
 
-    logger.info({ jobId: id, role: params.role }, 'Job created')
+    logger.info({ jobId: id, role: params.role, sessionId: inputSessionId }, 'Job created')
 
     return this.getById(id)!
   }

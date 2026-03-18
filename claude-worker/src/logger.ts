@@ -30,6 +30,13 @@ export function createLogger(service: string = 'claude-worker') {
   // Ensure log directory exists
   ensureLogDirectory(logFile)
 
+  // Create a multi-stream destination: both console and file
+  const fileDestination = pino.destination({
+    dest: logFile,
+    sync: false, // async writes for better performance
+    mkdir: true,
+  })
+
   return pino(
     {
       level: process.env.LOG_LEVEL || LogLevel.INFO,
@@ -40,8 +47,11 @@ export function createLogger(service: string = 'claude-worker') {
       },
       timestamp: pino.stdTimeFunctions.isoTime,
     },
-    // Console output
-    pino.destination(1)
+    // Multi-stream: console + file
+    pino.multistream([
+      { stream: pino.destination(1) }, // console
+      { stream: fileDestination },      // file
+    ])
   )
 }
 
@@ -50,7 +60,8 @@ let loggerInstance: ReturnType<typeof createLogger> | null = null
 
 export function getLogger(service?: string): ReturnType<typeof createLogger> {
   if (!loggerInstance) {
-    loggerInstance = createLogger(service)
+    // Always use 'claude-worker' as the log filename
+    loggerInstance = createLogger('claude-worker')
   }
   return loggerInstance
 }
