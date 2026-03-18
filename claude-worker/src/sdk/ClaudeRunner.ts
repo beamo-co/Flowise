@@ -6,7 +6,6 @@ import { getLogger } from '../logger'
 import { JobEventType } from '../jobs/types'
 import { eventRepository } from '../repositories'
 import { sessionRepository } from '../repositories/SessionRepository'
-import { getWorkspaceManager } from '../workspace'
 
 const logger = getLogger('ClaudeRunner')
 
@@ -28,7 +27,52 @@ export interface ClaudeEvent {
 export interface RunResult {
   sessionId: string
   output: string
+  prUrl?: string
   error?: string
+}
+
+/**
+ * Build the unified prompt. Claude decides which workflow to use based on the request and session context.
+ */
+function buildPrompt(userPrompt: string, workspaceDir: string, sessionId: string): string {
+  return `You are a code modification agent.
+
+## Request
+${userPrompt}
+
+## Workspace
+${workspaceDir}
+
+## CRITICAL: Read the root CLAUDE.md to understand all available repos before taking any action.
+
+## Workflow Decision
+Based on the request above, determine which workflow to use:
+
+### Workflow A: Create New PR (use when request is asking for NEW code changes)
+- cd to the target repo, git checkout main && git pull
+- Create a worktree with a new branch. Use the session directory as the worktree root:
+  \`git worktree add -b ai/<branch_name> /data/sessions/session-${sessionId}/<branch_name> origin/main\`
+- cd into the worktree directory
+- Make code changes
+- git add, git commit, git push
+- gh pr create
+- Output: PR_URL:<url>
+
+### Workflow B: Update Existing PR (use when request mentions an EXISTING PR URL, PR number, or review comments)
+- Parse the PR URL or number from the request
+- NEVER create a new branch - checkout the EXISTING branch from the PR
+- Run \`gh pr view --json headRefName,baseRefName\` to get the EXISTING branch name
+- Create worktree using the EXISTING branch: \`git worktree add /data/sessions/session-${sessionId}/<existing_branch_name> origin/<existing_branch_name>\`
+- cd into the worktree directory
+- Make fixes based on the comments
+- git add, git commit, git push (NOT gh pr create)
+- Output: ORIGINAL_PR_URL:<url>
+
+## IMPORTANT
+- Use Workflow B if the request contains a PR URL or mentions existing PR comments
+- Use Workflow A for all other cases
+- NEVER run \`gh pr create\` when updating an existing PR
+- Output the PR URL at the very end of your response`
 }
 
 // Track active queries by sessionId for interruption support
@@ -72,23 +116,10 @@ export class ClaudeRunner {
     // Interrupt any existing query for this session
     this.interruptSession(currentSessionId)
 
-    // If no workspace path provided, create one based on sessionId
-    let workDir = workspacePath
-    if (!workDir && currentSessionId) {
-      const workspaceManager = getWorkspaceManager()
-      // Create a session-based workspace directory (no repo, just a directory)
-      const sessionsDir = workspaceManager.getSessionsDir()
-      workDir = sessionsDir
-
-      // Create session-specific subdirectory
-      const sessionWorkDir = `${sessionsDir}/session-${currentSessionId}`
-      const fs = await import('fs')
-      if (!fs.existsSync(sessionWorkDir)) {
-        fs.mkdirSync(sessionWorkDir, { recursive: true })
-      }
-      workDir = sessionWorkDir
-      logger.info({ jobId, sessionId: currentSessionId, workDir }, 'Created session workspace')
-    }
+    // If no workspace path provided, use the configured workspace directory
+    const workspaceDir = config.WORKSPACE_DIR
+    const workDir = workspacePath || workspaceDir
+    logger.info({ jobId, sessionId: currentSessionId, workDir, workspaceDir }, 'Using workspace directory')
 
     try {
       // Clear Claude Code environment variable to allow nested invocation
@@ -133,8 +164,11 @@ export class ClaudeRunner {
 
       logger.info({ jobId }, 'Executing Claude query via SDK')
 
+      const fullPrompt = buildPrompt(prompt, workspaceDir, currentSessionId || '')
+      logger.info({ jobId, fullPromptLength: fullPrompt.length }, 'Built prompt')
+
       const stream = query({
-        prompt,
+        prompt: fullPrompt,
         options: queryOptions,
       })
 
@@ -212,9 +246,18 @@ export class ClaudeRunner {
 
         logger.info({ jobId, sessionId: currentSessionId, outputLength: outputText.length }, 'Claude run completed')
 
+        // Extract PR URL from output
+        let prUrl: string | undefined
+        const prUrlMatch = outputText.match(/(?:ORIGINAL_)?PR_URL:?\s*(https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+)/)
+        if (prUrlMatch) {
+          prUrl = prUrlMatch[1]
+          logger.info({ jobId, prUrl }, 'PR URL extracted')
+        }
+
         return {
           sessionId: currentSessionId,
           output: outputText,
+          prUrl,
         }
       } catch (error) {
         // Clean up active query tracking on error
@@ -234,6 +277,7 @@ export class ClaudeRunner {
         return {
           sessionId: currentSessionId || '',
           output: '',
+          prUrl: undefined,
           error: errorMessage,
         }
       }
@@ -244,6 +288,7 @@ export class ClaudeRunner {
       return {
         sessionId: currentSessionId || '',
         output: '',
+        prUrl: undefined,
         error: errorMessage,
       }
     }

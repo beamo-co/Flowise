@@ -25,7 +25,21 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # Install runtime dependencies for native modules and Claude Code CLI
-RUN apk add --no-cache python3 make g++ bash libc-dev curl
+RUN apk add --no-cache python3 make g++ bash libc-dev curl git
+
+# Install GitHub CLI manually (not available in Alpine repos)
+RUN GH_VERSION=2.63.2 && \
+    ARCH=$(uname -m) && \
+    case "$ARCH" in \
+        x86_64) GH_ARCH=amd64 ;; \
+        aarch64) GH_ARCH=arm64 ;; \
+        *) GH_ARCH=amd64 ;; \
+    esac && \
+    curl -fsSL https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${GH_ARCH}.tar.gz -o /tmp/gh.tar.gz && \
+    tar -xzf /tmp/gh.tar.gz -C /tmp && \
+    mv /tmp/gh_${GH_VERSION}_linux_${GH_ARCH}/bin/gh /usr/local/bin/gh && \
+    chmod +x /usr/local/bin/gh && \
+    rm -rf /tmp/gh.tar.gz /tmp/gh_${GH_VERSION}_*
 
 # Install Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
@@ -47,6 +61,10 @@ COPY --from=builder /app/dist ./dist
 # Create data directories
 RUN mkdir -p /data/repos /data/workspaces /data/sessions /data/logs /data/skills
 
+# Copy and set up entrypoint script
+COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # Set ownership
 RUN chown -R nodejs:nodejs /app /data
 
@@ -64,4 +82,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e 'require("http").get("http://localhost:3001/health", (r) => process.exit(r.statusCode === 200 ? 0 : 1))'
 
 # Start command
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

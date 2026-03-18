@@ -14,6 +14,13 @@ const configSchema = z.object({
   // Optional: Claude Code CLI path
   CLAUDE_CODE_PATH: z.string().optional(),
 
+  // GitHub authentication
+  GH_TOKEN: z.string().optional(),
+
+  // Workspace
+  WORKSPACE_DIR: z.string().default('/data/repos'),
+  MAX_TURNS: z.string().default('100'),
+
   // Database
   DATABASE_PATH: z.string().default('/data/worker.db'),
 })
@@ -35,6 +42,9 @@ export function loadConfig(): Config {
     DATA_ROOT: process.env.DATA_ROOT || '/data',
     MAX_CONCURRENCY: process.env.MAX_CONCURRENCY || '2',
     CLAUDE_CODE_PATH: process.env.CLAUDE_CODE_PATH,
+    GH_TOKEN: process.env.GH_TOKEN,
+    WORKSPACE_DIR: process.env.WORKSPACE_DIR || '/data/repos',
+    MAX_TURNS: process.env.MAX_TURNS || '100',
     DATABASE_PATH: process.env.DATABASE_PATH || `${process.env.DATA_ROOT || '/data'}/worker.db`,
   }
 

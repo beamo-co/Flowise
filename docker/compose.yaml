@@ -211,6 +211,9 @@ services:
       - SESSION_NAMESPACE=coding
       - DATA_ROOT=/data
       - MAX_CONCURRENCY=2
+      - GH_TOKEN=${GH_TOKEN}
+      - WORKSPACE_DIR=/data/repos
+      - MAX_TURNS=100
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}
     volumes:
@@ -239,6 +242,9 @@ services:
       - SESSION_NAMESPACE=support
       - DATA_ROOT=/data
       - MAX_CONCURRENCY=5
+      - GH_TOKEN=${GH_TOKEN}
+      - WORKSPACE_DIR=/data/repos
+      - MAX_TURNS=100
     volumes:
       - ./volumes/support-agent:/data
     restart: unless-stopped
