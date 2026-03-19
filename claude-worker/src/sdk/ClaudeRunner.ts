@@ -31,12 +31,12 @@ export interface RunResult {
 }
 
 /**
- * Build the unified prompt. Claude decides which workflow to use based on the request and session context.
+ * Build the unified prompt based on role.
  */
-function buildPrompt(userPrompt: string, sessionId: string): string {
-  // Worktree path must match WorkspaceManager's workspacesDir: /data/workspaces/session-{sessionId}
-  const worktreeBaseDir = `/data/workspaces/session-${sessionId}`
-  return `You are a code modification agent.
+function buildPrompt(userPrompt: string, sessionId: string, workerRole: string): string {
+  if (workerRole === 'coding') {
+    const worktreeBaseDir = `/data/workspaces/session-${sessionId}`
+    return `You are a code modification agent.
 
 ## Request
 ${userPrompt}
@@ -75,6 +75,16 @@ Based on the request above, determine which workflow to use:
 - Use Workflow A for all other cases
 - NEVER run \`gh pr create\` when updating an existing PR
 - Output the PR URL at the very end of your response`
+  }
+
+  // Support agent
+  return `You are a support agent.
+
+## Request
+${userPrompt}
+
+## Session ID: ${sessionId}
+`
 }
 
 // Track active queries by sessionId for interruption support
@@ -180,7 +190,7 @@ export class ClaudeRunner {
 
       logger.info({ jobId }, 'Executing Claude query via SDK')
 
-      const fullPrompt = buildPrompt(prompt, currentSessionId || '')
+      const fullPrompt = buildPrompt(prompt, currentSessionId || '', config.WORKER_ROLE)
       logger.info({ jobId, fullPromptLength: fullPrompt.length }, 'Built prompt')
 
       const stream = query({

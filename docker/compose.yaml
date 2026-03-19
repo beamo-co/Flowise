@@ -220,6 +220,7 @@ services:
     volumes:
       - ./volumes/coding-agent:/data
       - ./volumes/coding-agent/.claude:/home/nodejs/.claude
+      - ${PWD}/../skills/coding:/home/nodejs/.claude/skills
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
@@ -250,6 +251,7 @@ services:
       - MODEL=${MODEL:-MiniMax-M2.7-highspeed}
     volumes:
       - ./volumes/support-agent:/data
+      - ${PWD}/../skills/support:/home/nodejs/.claude/skills
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
