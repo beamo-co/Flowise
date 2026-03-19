@@ -21,6 +21,9 @@ const configSchema = z.object({
   WORKSPACE_DIR: z.string().default('/data/repos'),
   MAX_TURNS: z.string().default('100'),
 
+  // Claude model
+  MODEL: z.string().default('MiniMax-M2.7-highspeed'),
+
   // Database
   DATABASE_PATH: z.string().default('/data/worker.db'),
 })
@@ -45,6 +48,7 @@ export function loadConfig(): Config {
     GH_TOKEN: process.env.GH_TOKEN,
     WORKSPACE_DIR: process.env.WORKSPACE_DIR || '/data/repos',
     MAX_TURNS: process.env.MAX_TURNS || '100',
+    MODEL: process.env.MODEL || 'MiniMax-M2.7-highspeed',
     DATABASE_PATH: process.env.DATABASE_PATH || `${process.env.DATA_ROOT || '/data'}/worker.db`,
   }
 

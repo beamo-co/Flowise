@@ -1,6 +1,11 @@
 import axios, { AxiosInstance } from 'axios'
 import { logger } from '../logger'
 
+export interface SSEEvent {
+  event: 'start' | 'token' | 'agentReasoning' | 'agentFlowEvent' | 'calledTools' | 'metadata' | 'sourceDocuments' | 'usedTools' | 'error' | 'end'
+  data: any
+}
+
 export interface FlowiseConfig {
   baseUrl: string
   apiKey?: string
@@ -9,6 +14,7 @@ export interface FlowiseConfig {
 export interface FlowisePredictionRequest {
   question: string
   chatId?: string
+  streaming?: boolean
   overrideConfig?: Record<string, any>
 }
 
@@ -94,6 +100,86 @@ export class FlowiseClient {
     } catch (error) {
       logger.error({ error, chatflowId }, 'Failed to stream prediction')
       throw error
+    }
+  }
+
+  // Stream prediction with parsed SSE events
+  async *streamPredictFull(
+    chatflowId: string,
+    request: FlowisePredictionRequest
+  ): AsyncGenerator<SSEEvent> {
+    let buffer = ''
+
+    try {
+      const response = await this.client.post(
+        `/api/v1/prediction/${chatflowId}`,
+        { ...request, streaming: true },
+        { responseType: 'stream' }
+      )
+
+      for await (const chunk of response.data) {
+        buffer += chunk.toString()
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const parsed = this.parseSSELine(line)
+          if (parsed) {
+            yield parsed
+          }
+        }
+      }
+
+      // Process remaining buffer
+      if (buffer.trim()) {
+        const parsed = this.parseSSELine(buffer)
+        if (parsed) {
+          yield parsed
+        }
+      }
+    } catch (error) {
+      logger.error({ error, chatflowId }, 'Failed to stream prediction full')
+      throw error
+    }
+  }
+
+  // Parse a single SSE line
+  private parseSSELine(line: string): SSEEvent | null {
+    // Flowise uses format: "message:\ndata:{json}\n\n"
+    // Or just: "data:{json}"
+    const trimmed = line.trim()
+
+    // Handle "message:\ndata:..." format
+    if (trimmed.startsWith('message:')) {
+      // Extract data part
+      const dataIndex = trimmed.indexOf('data:')
+      if (dataIndex === -1) return null
+      const jsonStr = trimmed.substring(dataIndex + 5).trim()
+      return this.parseSSEData(jsonStr)
+    }
+
+    // Handle "data:..." format directly
+    if (trimmed.startsWith('data:')) {
+      const jsonStr = trimmed.substring(5).trim()
+      return this.parseSSEData(jsonStr)
+    }
+
+    return null
+  }
+
+  // Parse SSE data JSON
+  private parseSSEData(jsonStr: string): SSEEvent | null {
+    try {
+      const parsed = JSON.parse(jsonStr)
+      const eventType = parsed.event || 'token'
+      const data = parsed.data ?? parsed
+
+      return {
+        event: eventType,
+        data,
+      }
+    } catch {
+      return null
     }
   }
 }

@@ -1,5 +1,4 @@
 import { query, type Options, type Query } from '@anthropic-ai/claude-agent-sdk'
-import fs from 'fs'
 import path from 'path'
 import { getConfig } from '../config'
 import { getLogger } from '../logger'
@@ -34,14 +33,17 @@ export interface RunResult {
 /**
  * Build the unified prompt. Claude decides which workflow to use based on the request and session context.
  */
-function buildPrompt(userPrompt: string, workspaceDir: string, sessionId: string): string {
+function buildPrompt(userPrompt: string, sessionId: string): string {
+  // Worktree path must match WorkspaceManager's workspacesDir: /data/workspaces/session-{sessionId}
+  const worktreeBaseDir = `/data/workspaces/session-${sessionId}`
   return `You are a code modification agent.
 
 ## Request
 ${userPrompt}
 
 ## Workspace
-${workspaceDir}
+Worktree directory: ${worktreeBaseDir}
+All your work MUST be done inside this directory.
 
 ## CRITICAL: Read the root CLAUDE.md to understand all available repos before taking any action.
 
@@ -50,8 +52,8 @@ Based on the request above, determine which workflow to use:
 
 ### Workflow A: Create New PR (use when request is asking for NEW code changes)
 - cd to the target repo, git checkout main && git pull
-- Create a worktree with a new branch. Use the session directory as the worktree root:
-  \`git worktree add -b ai/<branch_name> /data/sessions/session-${sessionId}/<branch_name> origin/main\`
+- Create a worktree with a new branch under ${worktreeBaseDir}:
+  \`git worktree add -b ai/<branch_name> ${worktreeBaseDir}/<branch_name> origin/main\`
 - cd into the worktree directory
 - Make code changes
 - git add, git commit, git push
@@ -62,7 +64,7 @@ Based on the request above, determine which workflow to use:
 - Parse the PR URL or number from the request
 - NEVER create a new branch - checkout the EXISTING branch from the PR
 - Run \`gh pr view --json headRefName,baseRefName\` to get the EXISTING branch name
-- Create worktree using the EXISTING branch: \`git worktree add /data/sessions/session-${sessionId}/<existing_branch_name> origin/<existing_branch_name>\`
+- Create worktree using the EXISTING branch: \`git worktree add ${worktreeBaseDir}/<existing_branch_name> origin/<existing_branch_name>\`
 - cd into the worktree directory
 - Make fixes based on the comments
 - git add, git commit, git push (NOT gh pr create)
@@ -153,18 +155,32 @@ export class ClaudeRunner {
 
       // sessionId creates a new session with that ID
       // resume resumes an existing session by ID
+      // Build allowed directories: /data/repos for repos, /data/workspaces for worktrees
+      const allowedDirs = ['/data/repos', '/data/workspaces']
+      // Add session-specific worktree directory if it already exists
+      if (currentSessionId) {
+        const sessionWorktreeDir = `/data/workspaces/session-${currentSessionId}`
+        if (fs.existsSync(sessionWorktreeDir)) {
+          allowedDirs.push(sessionWorktreeDir)
+        }
+      }
       const queryOptions: Options = {
         pathToClaudeCodeExecutable: 'claude',
         cwd: sessionDir,
         permissionMode: 'bypassPermissions',
+        model: config.MODEL,
         // Use resume for existing sessions, sessionId for new sessions
         ...(sessionExists ? { resume: currentSessionId } : { sessionId: currentSessionId }),
+        // Restrict Claude Code to only access allowed directories
+        extraArgs: {
+          'add-dir': allowedDirs.join(','),
+        },
       }
       logger.info({ jobId, sessionId: currentSessionId, sessionExists, queryOptions }, 'Claude query options')
 
       logger.info({ jobId }, 'Executing Claude query via SDK')
 
-      const fullPrompt = buildPrompt(prompt, workspaceDir, currentSessionId || '')
+      const fullPrompt = buildPrompt(prompt, currentSessionId || '')
       logger.info({ jobId, fullPromptLength: fullPrompt.length }, 'Built prompt')
 
       const stream = query({

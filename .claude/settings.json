@@ -48,7 +48,11 @@
       "Bash(node get-flow.js)",
       "Bash(ls -la /Users/xiaoqi/Projects/Flowise/scripts/.env*)",
       "Bash(node -e \":*)",
-      "Bash(node import-agentflow.js --file coding-agent-flow-v3.json --name \"Claude Coding Agent v3\")"
+      "Bash(node import-agentflow.js --file coding-agent-flow-v3.json --name \"Claude Coding Agent v3\")",
+      "Read(//Users/xiaoqi/Projects/simplecode-slack-agent/**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\([{''''id'''':f[''''id''''],''''name'''':f.get\\(''''name'''',''''''''\\)} for f in d[:5]]\\)\")",
+      "Bash(curl -s -X POST \"http://localhost:3002/test/predict\" -H \"Content-Type: application/json\" -d '{\"\"\"\"question\"\"\"\":\"\"\"\"Say hello\"\"\"\", \"\"\"\"chatflowId\"\"\"\":\"\"\"\"df2d0e80-5f48-4ae4-913d-481f19b8408e\"\"\"\"}')",
+      "Bash(curl -s -X POST \"http://localhost:3003/test/predict\" -H \"Content-Type: application/json\" -d '{\"\"\"\"question\"\"\"\":\"\"\"\"Say hello\"\"\"\", \"\"\"\"chatflowId\"\"\"\":\"\"\"\"df2d0e80-5f48-4ae4-913d-481f19b8408e\"\"\"\"}')"
     ],
     "additionalDirectories": [
       "/Users/xiaoqi/Projects/Flowise/docker/volumes/flowise"

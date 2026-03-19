@@ -33,17 +33,35 @@ export class SlackClient {
   }
 
   // Update an existing message
-  async updateMessage(channel: string, ts: string, text: string): Promise<void> {
+  async updateMessage(channel: string, ts: string, text: string, blocks?: (Block | KnownBlock)[]): Promise<void> {
     try {
       await this.client.chat.update({
         channel,
         ts,
         text,
+        blocks,
       })
 
       logger.debug({ channel, ts }, 'Message updated')
     } catch (error) {
       logger.error({ error, channel, ts }, 'Failed to update message')
+      throw error
+    }
+  }
+
+  // Post a reply to a thread with blocks
+  async postReply(channel: string, threadTs: string, blocks: (Block | KnownBlock)[]): Promise<string> {
+    try {
+      const result = await this.client.chat.postMessage({
+        channel,
+        blocks,
+        thread_ts: threadTs,
+      })
+
+      logger.debug({ channel, threadTs, ts: result.ts }, 'Reply posted')
+      return result.ts!
+    } catch (error) {
+      logger.error({ error, channel, threadTs }, 'Failed to post reply')
       throw error
     }
   }
