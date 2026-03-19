@@ -214,11 +214,12 @@ services:
       - GH_TOKEN=${GH_TOKEN}
       - WORKSPACE_DIR=/data/repos
       - MAX_TURNS=100
-      - MODEL=${MODEL:-MiniMax-M2.7-highspeed}
+      - MODEL=${MODEL}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}
     volumes:
       - ./volumes/coding-agent:/data
+      - ./volumes/coding-agent/.claude:/home/nodejs/.claude
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
